@@ -1,9 +1,10 @@
-use std::fs;
+use std::{env, fs};
 use std::error::Error;
 
 pub struct Config {
     pub query: String,
-    pub filename: String
+    pub filename: String,
+    pub case_sensitive: bool,
 }
 
 impl Config {
@@ -13,8 +14,9 @@ impl Config {
         }
         let query = args[1].clone();
         let filename = args[2].clone();
+        let case_sensitive = env::var("CASE_INSENSITIVE").is_err(); // env::var(varname) returns Err if environment variable `varname` is not set
     
-        Ok(Config { query, filename })
+        Ok(Config { query, filename, case_sensitive })
     }
 }
 
@@ -23,7 +25,14 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
         // .expect("Something went wrong reading the file");
     println!("With text:\n{}", contents);
 
-    for line in search(&config.query, &contents) {
+    let results = if config.case_sensitive {
+        search(&config.query, &contents)
+    } else {
+        search_case_insensitive(&config.query, &contents)
+    };
+
+    // for line in search(&config.query, &contents) {
+    for line in results {
         println!("{}", line);
     }
     
@@ -35,6 +44,21 @@ pub fn search<'a>(query: &str, contents: &'a str) -> Vec<&'a str> {
 
     for line in contents.lines() {
         if line.contains(query) {
+            results.push(line);
+        }
+    }
+
+    results
+}
+
+pub fn search_case_insensitive<'a>(query: &str, contents: &'a str) -> Vec<&'a str> {
+    // Handles basic Unicode, but not 100% coverage.
+    
+    let query = query.to_lowercase();
+    let mut results = Vec::new();
+
+    for line in contents.lines() {
+        if line.to_lowercase().contains(&query) {
             results.push(line);
         }
     }
